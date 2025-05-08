@@ -1,0 +1,32 @@
+{
+  "pluginAlias": "MitsubishiWFRAC",
+  "pluginType": "accessory",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Accessory Name",
+        "type": "string",
+        "default": "WF-RAC AC"
+      },
+      "host": {
+        "title": "AC IP Address",
+        "type": "string"
+      },
+      "deviceId": {
+        "title": "Device ID",
+        "type": "string"
+      },
+      "operatorId": {
+        "title": "Operator ID",
+        "type": "string"
+      },
+      "airconId": {
+        "title": "Aircon ID",
+        "type": "string"
+      }
+    },
+    "required": ["host", "deviceId", "operatorId", "airconId"]
+  }
+}
