@@ -1,0 +1,100 @@
+<div class="card p-3">
+  <div class="form-group">
+    <label>AC Unit IP Address</label>
+    <input type="text" name="host" class="form-control" placeholder="192.168.x.x">
+  </div>
+
+  <button id="findBtn" class="btn btn-warning btn-block mt-3">FIND DEVICE</button>
+
+  <hr>
+
+  <div class="form-group">
+    <label>Device ID</label>
+    <input type="text" name="deviceId" class="form-control" readonly>
+  </div>
+  <div class="form-group">
+    <label>Operator ID</label>
+    <input type="text" name="operatorId" class="form-control" readonly>
+  </div>
+  <div class="form-group">
+    <label>Aircon ID</label>
+    <input type="text" name="airconId" class="form-control" readonly>
+  </div>
+
+  <hr>
+
+  <button id="testBtn" class="btn btn-info btn-block">TEST SERVER</button>
+  <button id="saveBtn" class="btn btn-success btn-block mt-2">SAVE TO CONFIG</button>
+</div>
+
+<script>
+(async () => {
+  const pluginConfig = await homebridge.getPluginConfig();
+  const current = pluginConfig[0] || {};
+
+  document.querySelector('input[name="host"]').value = current.host || '';
+  document.querySelector('input[name="deviceId"]').value = current.deviceId || '';
+  document.querySelector('input[name="operatorId"]').value = current.operatorId || '';
+  document.querySelector('input[name="airconId"]').value = current.airconId || '';
+
+  document.getElementById('testBtn').addEventListener('click', async () => {
+    homebridge.showSpinner();
+    try {
+      const res = await homebridge.request('/test');
+      console.log('[UI] ✅ /test response:', res);
+      homebridge.toast.success(`Test OK: ${res.message}`);
+    } catch (err) {
+      console.error('[UI] ❌ /test failed:', err);
+      homebridge.toast.error('Test failed — check logs.');
+    } finally {
+      homebridge.hideSpinner();
+    }
+  });
+
+  document.getElementById('findBtn').addEventListener('click', async () => {
+    const ip = document.querySelector('input[name="host"]').value.trim();
+    if (!ip) {
+      homebridge.toast.error('Please enter a valid IP address.');
+      return;
+    }
+
+    homebridge.showSpinner();
+    try {
+      const result = await homebridge.request('/discover', { ip });
+      console.log('[UI] ✅ Discover result:', result);
+
+      document.querySelector('input[name="deviceId"]').value = result.deviceId;
+      document.querySelector('input[name="operatorId"]').value = result.operatorId;
+      document.querySelector('input[name="airconId"]').value = result.airconId;
+
+      homebridge.toast.success('✅ AC details filled — click Save!');
+    } catch (err) {
+      console.error('[UI] ❌ Discovery failed:', err);
+      homebridge.toast.error('Failed to discover AC: ' + err.message);
+    } finally {
+      homebridge.hideSpinner();
+    }
+  });
+
+  // ✅ Save to config.json
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    const updated = [{
+      name: current.name || 'Test AC',
+      accessory: 'MitsubishiWFRAC',
+      host: document.querySelector('input[name="host"]').value.trim(),
+      deviceId: document.querySelector('input[name="deviceId"]').value.trim(),
+      operatorId: document.querySelector('input[name="operatorId"]').value.trim(),
+      airconId: document.querySelector('input[name="airconId"]').value.trim(),
+    }];
+
+    try {
+      await homebridge.updatePluginConfig(updated);
+      await homebridge.savePluginConfig();
+      homebridge.toast.success('✅ Config saved — restart Homebridge to apply.');
+    } catch (err) {
+      console.error('[UI] ❌ Save failed:', err);
+      homebridge.toast.error('Failed to save config.');
+    }
+  });
+})();
+</script>

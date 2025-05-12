@@ -1,4 +1,4 @@
-function parseIndoorTemp(base64String, log = console.log) {
+export function parseIndoorTemp(base64String, log = console.log) {
   const decoded = Buffer.from(base64String, 'base64');
   const signed = Array.from(decoded, b => (b > 127 ? b - 256 : b));
   const start = signed[18] * 4 + 21;
@@ -44,5 +44,3 @@ const indoorTempList = [
   38.3, 38.6, 39.0, 39.2, 39.5, 39.7, 40.0, 40.3, 40.6, 41.0,
   41.2, 41.5, 41.7, 42.0, 42.3, 42.6, 43.0
 ];
-
-module.exports = { parseIndoorTemp };

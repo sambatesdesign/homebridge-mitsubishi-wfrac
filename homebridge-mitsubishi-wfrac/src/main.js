@@ -1,5 +1,5 @@
-const { MitsubishiWFRACAccessory } = require('./wfrac-ac');
+import { MitsubishiWFRACAccessory } from './wfrac-ac.js';
 
-module.exports = (api) => {
+export default (api) => {
   api.registerAccessory('MitsubishiWFRAC', MitsubishiWFRACAccessory);
 };

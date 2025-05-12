@@ -1,4 +1,4 @@
-const { crc16ccitt } = require('crc');
+import { crc16ccitt } from 'crc';
 
 function addCRC16(buffer) {
   const crc = crc16ccitt(buffer);
@@ -26,7 +26,7 @@ function buildCommandBytes(power, tempC, mode = 'cool') {
     fan:  0b00010000,
     auto: 0b00000000
   };
-  b[2] |= modeBits[mode] || 0b00101000; // fallback to COOL
+  b[2] |= modeBits[mode] || 0b00101000;
 
   // Temperature
   b[4] = Math.floor(tempC / 0.5) + 128;
@@ -60,10 +60,8 @@ function buildReceiveBytes(power, tempC) {
   return b;
 }
 
-function generateAirconStat(power, tempC, mode = 'cool') {
+export function generateAirconStat(power, tempC, mode = 'cool') {
   const cmd = addCRC16(addVariable(buildCommandBytes(power, tempC, mode)));
   const rcv = addCRC16(addVariable(buildReceiveBytes(power, tempC)));
   return Buffer.concat([cmd, rcv]).toString('base64');
 }
-
-module.exports = { generateAirconStat };
