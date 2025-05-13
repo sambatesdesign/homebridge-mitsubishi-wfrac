@@ -1,6 +1,6 @@
 {
   "name": "homebridge-mitsubishi-wfrac",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Control Mitsubishi WF-RAC AC units via Homebridge (LAN-only, no cloud required)",
   "main": "src/main.js",
   "type": "module",

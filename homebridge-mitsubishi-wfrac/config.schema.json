@@ -1,6 +1,7 @@
 {
   "pluginAlias": "MitsubishiWFRACPlatform",
   "pluginType": "platform",
+  "name": "Mitsubishi WF-RAC Platform Plugin",
   "customUi": true,
   "singular": true,
   "schema": {
