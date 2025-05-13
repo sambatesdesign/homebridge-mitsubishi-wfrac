@@ -1,12 +1,16 @@
 {
   "pluginAlias": "MitsubishiWFRACPlatform",
   "pluginType": "platform",
-  "name": "Mitsubishi WF-RAC Platform Plugin",
   "customUi": true,
   "singular": true,
   "schema": {
     "type": "object",
     "properties": {
+      "name": {
+        "type": "string",
+        "title": "Platform Name",
+        "default": "MitsubishiWFRACPlatform"
+      },
       "acUnits": {
         "type": "array",
         "title": "AC Units",
@@ -37,6 +41,7 @@
           "required": ["name", "host", "deviceId", "operatorId", "airconId"]
         }
       }
-    }
+    },
+    "required": ["name", "acUnits"]
   }
 }
