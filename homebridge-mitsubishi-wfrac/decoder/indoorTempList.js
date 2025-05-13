@@ -1,6 +1,6 @@
 // decoder/indoorTempList.js
 
-const indoorTempList = [
+export const indoorTempList = [
   -40, -39, -38, -37, -36, -35, -34, -33, -32, -31,
   -30, -29, -28, -27, -26, -25, -24, -23, -22, -21,
   -20, -19, -18, -17, -16, -15, -14, -13, -12, -11,
@@ -12,5 +12,3 @@ const indoorTempList = [
   40,  41,  42,  43,  44,  45,  46,  47,  48,  49,
   50
 ];
-
-module.exports = { indoorTempList };

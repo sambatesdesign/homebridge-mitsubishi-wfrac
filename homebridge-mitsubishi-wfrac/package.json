@@ -3,18 +3,26 @@
   "version": "0.0.1",
   "description": "Control Mitsubishi WF-RAC AC units via Homebridge",
   "main": "src/main.js",
+  "type": "module",
   "keywords": [
     "homebridge-plugin"
   ],
   "engines": {
     "node": "^20 || ^22",
-    "homebridge": ">=1.6.0"
+    "homebridge": ">=1.6.0",
+    "homebridge-config-ui-x": ">=4.0.0"
   },
   "dependencies": {
     "axios": "^1.6.0",
-    "crc": "^4.3.2"
+    "crc": "^4.3.2",
+    "uuid": "^9.0.0",
+    "@homebridge/plugin-ui-utils": "^2.0.0"
   },
   "devDependencies": {
     "homebridge": "^1.9.0"
+  },
+  "ui": {
+    "path": "./homebridge-ui",
+    "customUi": true
   }
 }
