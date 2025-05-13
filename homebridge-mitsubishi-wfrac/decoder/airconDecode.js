@@ -1,21 +1,17 @@
-export function parseIndoorTemp(base64String, log = console.log) {
+// decoder/airconDecode.js
+export function parseIndoorTemp(base64String) {
   const decoded = Buffer.from(base64String, 'base64');
   const signed = Array.from(decoded, b => (b > 127 ? b - 256 : b));
   const start = signed[18] * 4 + 21;
   const segment = signed.slice(start + 19, signed.length - 2);
 
-  log('[Test AC] Decoded segment:', segment);
-
   for (let i = 0; i < segment.length - 2; i += 4) {
     const [a, b, c] = segment.slice(i, i + 3);
     if (a === -128 && b === 32) {
-      const temp = indoorTempList[c & 0xff];
-      log('[Test AC] Decoded indoor temperature:', temp);
-      return temp;
+      return indoorTempList[c & 0xff];
     }
   }
 
-  log('[Test AC] Could not decode temperature');
   return null;
 }
 

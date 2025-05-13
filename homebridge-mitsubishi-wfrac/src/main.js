@@ -1,5 +1,6 @@
-import { MitsubishiWFRACAccessory } from './wfrac-ac.js';
+// src/main.js
+import { MitsubishiWFRACPlatform } from './wfrac-ac.js';
 
 export default (api) => {
-  api.registerAccessory('MitsubishiWFRAC', MitsubishiWFRACAccessory);
+  api.registerPlatform('MitsubishiWFRACPlatform', MitsubishiWFRACPlatform);
 };
