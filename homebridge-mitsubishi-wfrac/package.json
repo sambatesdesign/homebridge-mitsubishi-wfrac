@@ -1,6 +1,6 @@
 {
   "name": "homebridge-mitsubishi-wfrac",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Control Mitsubishi WF-RAC AC units via Homebridge (LAN-only, no cloud required)",
   "main": "src/main.js",
   "type": "module",
@@ -25,7 +25,7 @@
     "url": "https://github.com/sambatesdesign/homebridge-mitsubishi-wfrac.git"
   },
   "bugs": {
-    "url": "https://github.com/sambatesdesign/homebridge-mitsubishi-wfracissues"
+    "url": "https://github.com/sambatesdesign/homebridge-mitsubishi-wfrac/issues"
   },
   "homepage": "https://github.com/sambatesdesign/homebridge-mitsubishi-wfrac#readme",
   "dependencies": {
@@ -40,5 +40,9 @@
   "ui": {
     "path": "./homebridge-ui",
     "customUi": true
+  },
+  "display": {
+    "label": "Mitsubishi WF-RAC",
+    "icon": "https://raw.githubusercontent.com/sambatesdesign/homebridge-mitsubishi-wfrac/main/icon.png"
   }
 }
