@@ -124,7 +124,16 @@ class MitsubishiWFRACAccessory {
       const b64 = res.data.contents.airconStat;
       const buffer = Buffer.from(b64, 'base64');
       const temp = parseIndoorTemp(b64);
-      const powerOn = (buffer[6] & 0b00000001) === 1;
+
+      // 🔍 Debug log for the full raw response
+      this.log(`[${this.name}] Full base64: ${b64}`);
+      this.log(`[${this.name}] Full buffer (hex): ${buffer.toString('hex')}`);
+      this.log(`[${this.name}] Full buffer (bytes): ${Array.from(buffer)}`);
+
+      // Original decoding logic
+      const offset = buffer[18] * 4 + 21;
+      const powerOn = (buffer[offset + 2] & 0b00000011) === 1;
+      this.log(`[${this.name}] Power check from offset ${offset + 2} → byte value: ${buffer[offset + 2]} → powerOn: ${powerOn}`);
       const modeVal = (buffer[5] & 0b00001110) >> 1;
 
       this.currentTemp = Number.isFinite(temp) ? temp : this.currentTemp;
