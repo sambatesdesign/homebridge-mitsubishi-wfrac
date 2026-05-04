@@ -65,3 +65,16 @@ export function generateAirconStat(power, tempC, mode = 'cool') {
   const rcv = addCRC16(addVariable(buildReceiveBytes(power, tempC)));
   return Buffer.concat([cmd, rcv]).toString('base64');
 }
+
+// Rebuilds the stat from already-read command bytes, modifying only power/mode/temp.
+// All other bytes (fan speed, swing, vane, etc.) are preserved from the device's current state.
+export function rebuildAirconStat(cmdBytes, power, tempC, mode = 'cool') {
+  const modeBits = { cool: 0b00101000, heat: 0b00110000, dry: 0b00011000, fan: 0b00010000, auto: 0b00000000 };
+  const b = Buffer.from(cmdBytes);
+  b[2] = (b[2] & ~0b00000011) | (power ? 0b00000011 : 0b00000010);
+  b[2] = (b[2] & ~0b00111100) | (modeBits[mode] ?? 0b00101000);
+  b[4] = Math.floor(tempC / 0.5) + 128;
+  const cmd = addCRC16(addVariable(b));
+  const rcv = addCRC16(addVariable(buildReceiveBytes(power, tempC)));
+  return Buffer.concat([cmd, rcv]).toString('base64');
+}
