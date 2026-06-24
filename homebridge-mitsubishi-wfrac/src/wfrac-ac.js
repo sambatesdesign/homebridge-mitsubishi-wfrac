@@ -128,12 +128,14 @@ class MitsubishiWFRACAccessory {
       const offset = buffer[18] * 4 + 21;
       const powerOn = (buffer[offset + 2] & 0b00000011) === 3;
       const modeVal = buffer[offset + 2] & 0b00111100;
+      const setTemp = (buffer[offset + 4] - 128) * 0.5;
 
       this.currentTemp = Number.isFinite(temp) ? temp : this.currentTemp;
       this.isOn = powerOn;
       this.mode = modeVal === 0b00110000 ? 'heat' : 'cool';
+      if (setTemp >= 16 && setTemp <= 30) this.temp = setTemp;
 
-      this.log(`[${this.name}] Polled temp: ${this.currentTemp}, power: ${this.isOn}, mode: ${this.mode}`);
+      this.log(`[${this.name}] Polled — current: ${this.currentTemp}°, set: ${this.temp}°, power: ${this.isOn}, mode: ${this.mode}`);
 
       this.service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).updateValue(this.currentTemp);
       this.service.getCharacteristic(this.api.hap.Characteristic.CurrentHeaterCoolerState)
@@ -150,6 +152,9 @@ class MitsubishiWFRACAccessory {
         .updateValue(this.mode === 'heat'
           ? this.api.hap.Characteristic.TargetHeaterCoolerState.HEAT
           : this.api.hap.Characteristic.TargetHeaterCoolerState.COOL);
+
+      this.service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature).updateValue(this.temp);
+      this.service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature).updateValue(this.temp);
 
     } catch (err) {
       this.log(`[${this.name}] Polling error: ${err.message}`);
