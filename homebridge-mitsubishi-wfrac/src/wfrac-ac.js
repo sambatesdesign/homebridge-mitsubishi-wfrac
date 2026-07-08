@@ -1,7 +1,7 @@
 // src/wfrac-ac.js
 import axios from 'axios';
 import { parseIndoorTemp } from '../decoder/airconDecode.js';
-import { generateAirconStat } from '../encoder/airconStat.js';
+import { generateAirconStat, rebuildAirconStat } from '../encoder/airconStat.js';
 
 export class MitsubishiWFRACPlatform {
   constructor(log, config, api) {
@@ -125,22 +125,28 @@ class MitsubishiWFRACAccessory {
       const buffer = Buffer.from(b64, 'base64');
       const temp = parseIndoorTemp(b64);
 
-      // 🔍 Debug log for the full raw response
-      this.log(`[${this.name}] Full base64: ${b64}`);
-      this.log(`[${this.name}] Full buffer (hex): ${buffer.toString('hex')}`);
-      this.log(`[${this.name}] Full buffer (bytes): ${Array.from(buffer)}`);
-
-      // Original decoding logic
       const offset = buffer[18] * 4 + 21;
       const powerOn = (buffer[offset + 2] & 0b00000011) === 1;
-      this.log(`[${this.name}] Power check from offset ${offset + 2} → byte value: ${buffer[offset + 2]} → powerOn: ${powerOn}`);
-      const modeVal = (buffer[5] & 0b00001110) >> 1;
+      const modeVal = buffer[offset + 2] & 0b00111100;
+      const setTemp = buffer[offset + 4] / 2;
+
+      const fanRaw = buffer[offset + 3] & 0b00001111;
+      const fanLabel = { 7: 'auto', 0: 'low1', 1: 'low2', 2: 'high', 6: 'highest' }[fanRaw] ?? `unknown(${fanRaw})`;
+
+      const vSwingAuto = (buffer[offset + 2] & 0b11000000) === 0b01000000;
+      const vSwingPos = (buffer[offset + 3] & 0b11110000) >> 4;
+      const vSwingLabel = vSwingAuto ? 'auto' : `pos${vSwingPos + 1}`;
+
+      const hSwingAuto = (buffer[offset + 12] & 0b00000011) === 0b00000001;
+      const hSwingPos = buffer[offset + 11] & 0b00011111;
+      const hSwingLabel = hSwingAuto ? 'auto' : `pos${hSwingPos + 1}`;
 
       this.currentTemp = Number.isFinite(temp) ? temp : this.currentTemp;
       this.isOn = powerOn;
-      this.mode = modeVal === 2 ? 'heat' : 'cool';
+      this.mode = modeVal === 0b00010000 ? 'heat' : 'cool';
+      if (setTemp >= 16 && setTemp <= 30) this.temp = setTemp;
 
-      this.log(`[${this.name}] Polled temp: ${this.currentTemp}, power: ${this.isOn}, mode: ${this.mode}`);
+      this.log(`[${this.name}] Polled — current: ${this.currentTemp}°, set: ${this.temp}°, power: ${this.isOn}, mode: ${this.mode}, fan: ${fanLabel}, vSwing: ${vSwingLabel}, hSwing: ${hSwingLabel}`);
 
       this.service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).updateValue(this.currentTemp);
       this.service.getCharacteristic(this.api.hap.Characteristic.CurrentHeaterCoolerState)
@@ -157,6 +163,9 @@ class MitsubishiWFRACAccessory {
         .updateValue(this.mode === 'heat'
           ? this.api.hap.Characteristic.TargetHeaterCoolerState.HEAT
           : this.api.hap.Characteristic.TargetHeaterCoolerState.COOL);
+
+      this.service.getCharacteristic(this.api.hap.Characteristic.HeatingThresholdTemperature).updateValue(this.temp);
+      this.service.getCharacteristic(this.api.hap.Characteristic.CoolingThresholdTemperature).updateValue(this.temp);
 
     } catch (err) {
       this.log(`[${this.name}] Polling error: ${err.message}`);
@@ -182,50 +191,41 @@ class MitsubishiWFRACAccessory {
     await this.sendCommand();
   }
 
-  async getCurrentTemp() {
-    try {
-      const payload = {
-        apiVer: "1.0",
-        command: "getAirconStat",
-        deviceId: this.config.deviceId,
-        operatorId: this.config.operatorId,
-        timestamp: Math.floor(Date.now() / 1000),
-      };
-
-      const res = await axios.post(`http://${this.config.host}:51443/beaver/command/getAirconStat`, payload, {
-        headers: { "Content-Type": "application/json" },
-        timeout: 10000,
-      });
-
-      const b64 = res.data.contents.airconStat;
-      const temp = parseIndoorTemp(b64);
-      this.log(`[${this.name}] Decoded temp from device: ${temp}`);
-      return Number.isFinite(temp) ? temp : this.currentTemp;
-    } catch (err) {
-      this.log(`[${this.name}] Error fetching current temperature: ${err.message}`);
-      return this.currentTemp;
-    }
+  getCurrentTemp() {
+    return this.currentTemp;
   }
 
   async sendCommand() {
-    const payload = {
-      apiVer: "1.0",
-      command: "setAirconStat",
-      deviceId: this.config.deviceId,
-      operatorId: this.config.operatorId,
-      timestamp: Math.floor(Date.now() / 1000),
-      contents: {
-        airconId: this.config.airconId,
-        airconStat: generateAirconStat(this.isOn, this.temp, this.mode),
-      },
-    };
+    let airconStat;
 
     try {
-      const res = await axios.post(`http://${this.config.host}:51443/beaver/command/setAirconStat`, payload, {
-        headers: { "Content-Type": "application/json" },
-        timeout: 10000,
-      });
-      this.log(`[${this.name}] AC command sent:`, res.data);
+      const res = await axios.post(
+        `http://${this.config.host}:51443/beaver/command/getAirconStat`,
+        { apiVer: "1.0", command: "getAirconStat", deviceId: this.config.deviceId, operatorId: this.config.operatorId, timestamp: Math.floor(Date.now() / 1000) },
+        { headers: { "Content-Type": "application/json" }, timeout: 10000 }
+      );
+      const buf = Buffer.from(res.data.contents.airconStat, 'base64');
+      const offset = buf[18] * 4 + 21;
+      airconStat = rebuildAirconStat(buf.subarray(offset, offset + 18), this.isOn, this.temp, this.mode);
+    } catch (err) {
+      this.log(`[${this.name}] Could not read device state before send, using defaults: ${err.message}`);
+      airconStat = generateAirconStat(this.isOn, this.temp, this.mode);
+    }
+
+    try {
+      await axios.post(
+        `http://${this.config.host}:51443/beaver/command/setAirconStat`,
+        {
+          apiVer: "1.0",
+          command: "setAirconStat",
+          deviceId: this.config.deviceId,
+          operatorId: this.config.operatorId,
+          timestamp: Math.floor(Date.now() / 1000),
+          contents: { airconId: this.config.airconId, airconStat },
+        },
+        { headers: { "Content-Type": "application/json" }, timeout: 10000 }
+      );
+      this.log(`[${this.name}] Command sent (power=${this.isOn}, mode=${this.mode}, temp=${this.temp})`);
     } catch (err) {
       this.log(`[${this.name}] AC command error: ${err.message}`);
     }
