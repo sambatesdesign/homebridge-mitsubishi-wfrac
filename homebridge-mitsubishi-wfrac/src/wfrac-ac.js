@@ -1,7 +1,7 @@
 // src/wfrac-ac.js
 import axios from 'axios';
 import { parseIndoorTemp } from '../decoder/airconDecode.js';
-import { generateAirconStat, rebuildAirconStat } from '../encoder/airconStat.js';
+import { generateAirconStat } from '../encoder/airconStat.js';
 
 export class MitsubishiWFRACPlatform {
   constructor(log, config, api) {
@@ -126,13 +126,13 @@ class MitsubishiWFRACAccessory {
       const temp = parseIndoorTemp(b64);
 
       const offset = buffer[18] * 4 + 21;
-      const powerOn = (buffer[offset + 2] & 0b00000011) === 3;
+      const powerOn = (buffer[offset + 2] & 0b00000011) === 1;
       const modeVal = buffer[offset + 2] & 0b00111100;
-      const setTemp = (buffer[offset + 4] - 128) * 0.5;
+      const setTemp = buffer[offset + 4] / 2;
 
       this.currentTemp = Number.isFinite(temp) ? temp : this.currentTemp;
       this.isOn = powerOn;
-      this.mode = modeVal === 0b00110000 ? 'heat' : 'cool';
+      this.mode = modeVal === 0b00010000 ? 'heat' : 'cool';
       if (setTemp >= 16 && setTemp <= 30) this.temp = setTemp;
 
       this.log(`[${this.name}] Polled — current: ${this.currentTemp}°, set: ${this.temp}°, power: ${this.isOn}, mode: ${this.mode}`);
@@ -185,29 +185,6 @@ class MitsubishiWFRACAccessory {
   }
 
   async sendCommand() {
-    let airconStat;
-
-    try {
-      const getRes = await axios.post(
-        `http://${this.config.host}:51443/beaver/command/getAirconStat`,
-        {
-          apiVer: "1.0",
-          command: "getAirconStat",
-          deviceId: this.config.deviceId,
-          operatorId: this.config.operatorId,
-          timestamp: Math.floor(Date.now() / 1000),
-        },
-        { headers: { "Content-Type": "application/json" }, timeout: 10000 }
-      );
-      const buffer = Buffer.from(getRes.data.contents.airconStat, 'base64');
-      const offset = buffer[18] * 4 + 21;
-      const cmdBytes = buffer.slice(offset, offset + 18);
-      airconStat = rebuildAirconStat(cmdBytes, this.isOn, this.temp, this.mode);
-    } catch (err) {
-      this.log(`[${this.name}] Could not read current state before send, falling back to defaults: ${err.message}`);
-      airconStat = generateAirconStat(this.isOn, this.temp, this.mode);
-    }
-
     try {
       await axios.post(
         `http://${this.config.host}:51443/beaver/command/setAirconStat`,
@@ -217,7 +194,7 @@ class MitsubishiWFRACAccessory {
           deviceId: this.config.deviceId,
           operatorId: this.config.operatorId,
           timestamp: Math.floor(Date.now() / 1000),
-          contents: { airconId: this.config.airconId, airconStat },
+          contents: { airconId: this.config.airconId, airconStat: generateAirconStat(this.isOn, this.temp, this.mode) },
         },
         { headers: { "Content-Type": "application/json" }, timeout: 10000 }
       );
