@@ -1,7 +1,7 @@
 // src/wfrac-ac.js
 import axios from 'axios';
 import { parseIndoorTemp } from '../decoder/airconDecode.js';
-import { generateAirconStat } from '../encoder/airconStat.js';
+import { generateAirconStat, rebuildAirconStat } from '../encoder/airconStat.js';
 
 export class MitsubishiWFRACPlatform {
   constructor(log, config, api) {
@@ -130,12 +130,23 @@ class MitsubishiWFRACAccessory {
       const modeVal = buffer[offset + 2] & 0b00111100;
       const setTemp = buffer[offset + 4] / 2;
 
+      const fanRaw = buffer[offset + 3] & 0b00001111;
+      const fanLabel = { 7: 'auto', 0: 'low1', 1: 'low2', 2: 'high', 6: 'highest' }[fanRaw] ?? `unknown(${fanRaw})`;
+
+      const vSwingAuto = (buffer[offset + 2] & 0b11000000) === 0b01000000;
+      const vSwingPos = (buffer[offset + 3] & 0b11110000) >> 4;
+      const vSwingLabel = vSwingAuto ? 'auto' : `pos${vSwingPos + 1}`;
+
+      const hSwingAuto = (buffer[offset + 12] & 0b00000011) === 0b00000001;
+      const hSwingPos = buffer[offset + 11] & 0b00011111;
+      const hSwingLabel = hSwingAuto ? 'auto' : `pos${hSwingPos + 1}`;
+
       this.currentTemp = Number.isFinite(temp) ? temp : this.currentTemp;
       this.isOn = powerOn;
       this.mode = modeVal === 0b00010000 ? 'heat' : 'cool';
       if (setTemp >= 16 && setTemp <= 30) this.temp = setTemp;
 
-      this.log(`[${this.name}] Polled — current: ${this.currentTemp}°, set: ${this.temp}°, power: ${this.isOn}, mode: ${this.mode}`);
+      this.log(`[${this.name}] Polled — current: ${this.currentTemp}°, set: ${this.temp}°, power: ${this.isOn}, mode: ${this.mode}, fan: ${fanLabel}, vSwing: ${vSwingLabel}, hSwing: ${hSwingLabel}`);
 
       this.service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature).updateValue(this.currentTemp);
       this.service.getCharacteristic(this.api.hap.Characteristic.CurrentHeaterCoolerState)
@@ -185,6 +196,22 @@ class MitsubishiWFRACAccessory {
   }
 
   async sendCommand() {
+    let airconStat;
+
+    try {
+      const res = await axios.post(
+        `http://${this.config.host}:51443/beaver/command/getAirconStat`,
+        { apiVer: "1.0", command: "getAirconStat", deviceId: this.config.deviceId, operatorId: this.config.operatorId, timestamp: Math.floor(Date.now() / 1000) },
+        { headers: { "Content-Type": "application/json" }, timeout: 10000 }
+      );
+      const buf = Buffer.from(res.data.contents.airconStat, 'base64');
+      const offset = buf[18] * 4 + 21;
+      airconStat = rebuildAirconStat(buf.subarray(offset, offset + 18), this.isOn, this.temp, this.mode);
+    } catch (err) {
+      this.log(`[${this.name}] Could not read device state before send, using defaults: ${err.message}`);
+      airconStat = generateAirconStat(this.isOn, this.temp, this.mode);
+    }
+
     try {
       await axios.post(
         `http://${this.config.host}:51443/beaver/command/setAirconStat`,
@@ -194,7 +221,7 @@ class MitsubishiWFRACAccessory {
           deviceId: this.config.deviceId,
           operatorId: this.config.operatorId,
           timestamp: Math.floor(Date.now() / 1000),
-          contents: { airconId: this.config.airconId, airconStat: generateAirconStat(this.isOn, this.temp, this.mode) },
+          contents: { airconId: this.config.airconId, airconStat },
         },
         { headers: { "Content-Type": "application/json" }, timeout: 10000 }
       );
